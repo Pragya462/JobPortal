@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const configPath = path.join(__dirname, '..', 'config', 'config.json');
-let config = {}
+export let config = {}
 
 const loadConfig = () => {
     try{

@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 import dotenv from 'dotenv'
+import { config } from '../utils/loadConfig.js';
 
 dotenv.config();
 
