@@ -1,4 +1,6 @@
-import { sql } from '../config/db.js'
+import { sql } from '../database/db.js'
+import cloudinary from '../utils/cloudinary.js';
+import getDataUri from '../utils/datauri.js';
 
 export const registerCompany = async (req, res) => {
     try{
@@ -33,7 +35,7 @@ export const getCompany = async (req, res) => {
         const companies = await sql `SELECT * FROM companies WHERE user_id = ${userId}`;
 
         if(companies.length==0)
-            return res.status(404).json({success: false, message: "No companies found"});
+            return res.status(200).json({success: true, message: "No companies found", companies});
 
         return res.status(200).json({success: true, message: "Companies found successfully", companies: companies});
     }
@@ -63,16 +65,26 @@ export const getCompanyById = async (req, res) => {
 
 export const updateCompany = async (req, res) => {
     try{
-        const { companyName, description, website, location, logo } = req.body;
+        const { companyName, description, website, location } = req.body;
 
         const id = req.params.id;
+
+        let logo=null;
+        if(req.file)
+        {
+            const fileuri = getDataUri(req.file);
+            const cloudResponse = await cloudinary.uploader.upload(fileuri.content);
+            logo= cloudResponse.secure_url;
+        }
+
+        const existing = await sql `SELECT * FROM profiles where user_id=${id}`;
 
         const updatedCompany = await sql `UPDATE companies 
         SET name = ${companyName}, 
         description = ${description}, 
         website = ${website},
         location = ${location},
-        logo = ${logo}
+        logo = ${logo?? existing.logo}
         WHERE id = ${id}
         RETURNING *`;
 

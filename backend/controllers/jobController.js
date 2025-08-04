@@ -1,4 +1,4 @@
-import { sql } from '../config/db.js'
+import { sql } from '../database/db.js'
 
 //for admin to post a new job
 export const postJob = async (req, res) => {
@@ -41,7 +41,7 @@ export const getAllJobs = async (req, res) => {
         `;
 
         if(jobs.length==0)
-            return res.status(404).json({success: false, message: "No jobs found"});
+            return res.status(200).json({success: true, message: "No jobs found", jobs});
 
         return res.status(200).json({success: true, jobs, message: "Jobs found successfully"});
     }
@@ -56,13 +56,32 @@ export const getAllJobs = async (req, res) => {
 export const getJobById = async (req, res) => {
     try{
         const jobId= req.params.id;
+        const userId = req.user.id;
 
-        const job = await sql `SELECT * FROM jobs WHERE id = ${jobId}`;
+        const job = await sql`
+            SELECT 
+                j.*, 
+                COUNT(a.id) AS applicant_count
+            FROM jobs j
+            LEFT JOIN applications a ON j.id = a.job_id
+            WHERE j.id = ${jobId}
+            GROUP BY j.id;
+        `;
 
         if(job.length==0)
             return res.status(404).json({success: false, message: "Job not found"});
 
-        return res.status(200).json({success: true, job: job[0], message:"Job found successfully"});
+        const applyResult = await sql `
+            SELECT * FROM applications 
+            WHERE applicant_id=${userId} 
+            AND job_id=${job[0].id}`;
+
+        let isApplied = false;
+        if(applyResult.length>0)
+            isApplied = true;
+
+        return res.status(200).json({success: true, job: {...job[0], isApplied}, message: "Job found successfully"});
+
     }
     catch(error)
     {
@@ -76,10 +95,15 @@ export const getJobsByAdminId = async (req, res) => {
     try{
         const adminId = req.user.id;
 
-        const jobs = await sql `SELECT * FROM jobs WHERE created_by = ${adminId}`;
+        const jobs = await sql `
+        SELECT jobs.* , companies.name as company
+        FROM jobs 
+        LEFT JOIN companies 
+        ON jobs.company_id=companies.id
+        WHERE jobs.created_by = ${adminId}`;
 
         if(jobs.length==0)
-            return res.status(404).json({success: false, message: "No jobs found"});
+            return res.status(200).json({success: true, message: "No jobs found", jobs});
 
         return res.status(200).json({success: true, jobs, message:"Jobs found successfully"});
     }

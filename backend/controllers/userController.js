@@ -1,7 +1,9 @@
-import { sql } from '../config/db.js';
+import { sql } from '../database/db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import getDataUri from '../utils/datauri.js';
+import cloudinary from '../utils/cloudinary.js';
 
 dotenv.config();
 
@@ -11,6 +13,14 @@ export const register = async (req, res) => {
     
     if(!fullName || !email || !phoneNumber || !password || !role){
         return res.status(400).json({ success: false, message: "Please fill in all fields" });
+    }
+
+    let image=null;
+    if(req.file)
+    {
+        const fileuri = getDataUri(req.file);
+        const cloudResponse = await cloudinary.uploader.upload(fileuri.content);
+        image=cloudResponse.secure_url;
     }
 
     try{
@@ -26,6 +36,12 @@ export const register = async (req, res) => {
         RETURNING *
         `;
 
+        const profile = await sql`
+            INSERT INTO profiles (user_id, profile_photo)
+            VALUES (${newUser[0].id}, ${image ?? ''})
+            RETURNING *
+        `;
+
         const token = jwt.sign({ userId: newUser[0].id }, process.env.SECRET_KEY, { expiresIn: '1d' });
 
         return res.status(201).cookie("token", token, {
@@ -33,7 +49,7 @@ export const register = async (req, res) => {
             secure: process.env.NODE_ENV === 'production',
             maxAge: 24 * 60 * 60 * 1000,
             sameSite: "Lax",
-        }).json({ success: true, user: newUser[0], message: "User created successfully" });
+        }).json({ success: true, user: {...newUser[0], ...profile[0]}, message: "User created successfully" });
     }
     catch(error)
     {
@@ -50,7 +66,22 @@ export const login = async (req, res) => {
     }
 
     try{
-        const user = await sql `SELECT * FROM users WHERE email=${email}`;
+        const user = await sql `
+        SELECT u.id, 
+        u.fullname, 
+        u.email,
+        u.phoneNumber,
+        u.password,
+        u.role,
+        p.bio, 
+        p.skills,
+        p.profile_photo,
+        p.resume,
+        p.resume_original_name
+        FROM users u 
+        LEFT JOIN profiles p
+        ON u.id = p.user_id
+        WHERE u.email=${email}`;
 
         if(user.length == 0)
         {
@@ -112,6 +143,18 @@ export const updateProfile = async (req, res) => {
             return res.status(400).json({ success: false, message: "Please fill in all fields" });
         }
 
+        const file = req.file;
+        let resumeUrl=null;
+        let resumeName=null;
+
+        if(file)
+        {
+            const fileuri = getDataUri(file);
+            const cloudResponse = await cloudinary.uploader.upload(fileuri.content);
+            resumeUrl= cloudResponse.secure_url;
+            resumeName= file.originalname;
+        }
+
         const skillsArray = skills.split(",").map((skill) => skill.trim());
 
         const updatedUser = await sql`UPDATE users
@@ -119,14 +162,17 @@ export const updateProfile = async (req, res) => {
         email = ${email}, 
         phonenumber = ${phoneNumber}
         WHERE id = ${userId}
-        RETURNING *
+        RETURNING fullname, email, phonenumber
         `;
 
-        const updatedProfile = await sql `UPDATE profiles
-        SET bio = ${bio},
-        skills = ${skillsArray}
-        WHERE user_id = ${userId}
-        RETURNING *`;
+        const profile = await sql`SELECT * FROM profiles WHERE user_id = ${userId}`;
+
+        const updatedProfile = await sql`
+            UPDATE profiles SET bio=${bio}, skills=${skillsArray}, 
+            resume=${resumeUrl?? profile[0].resume}, 
+            resume_original_name=${resumeName?? profile[0].resume_original_name}
+            WHERE user_id = ${userId}
+            RETURNING bio, skills, resume, resume_original_name` ;
 
         return res.status(200).json({success: true, user: {...updatedUser[0], ...updatedProfile[0]}, message: "Profile updated successfully"});
     }

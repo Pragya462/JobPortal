@@ -1,4 +1,4 @@
-import { sql } from '../config/db.js';
+import { sql } from '../database/db.js';
 
 export const applyJob = async (req, res) => {
     try{
@@ -60,9 +60,9 @@ export const getAppliedJobs = async (req, res) => {
             ORDER BY applications.created_at DESC`;
 
         if(appliedJobs.length==0)
-            return res.status(404).json({success: false, message: "No jobs applied"});
+            return res.status(200).json({success: true, message: "No jobs applied", appliedJobs});
 
-        return res.status(200).json({success: true, message: "Jobs applied successfully", appliedJobs});
+        return res.status(200).json({success: true, message: "Jobs found successfully", appliedJobs});
     }
     catch(error)
     {
@@ -77,14 +77,17 @@ export const getApplicants = async (req, res) => {
 
         const applicants = await sql `
         SELECT 
+            a.status,
+            a.created_at AS application_date,
             u.id AS applicant_id,
             u.fullname,
             u.email,
             u.phonenumber,
-            a.status,
-            a.created_at AS application_date
-            FROM applications a
-            JOIN users u ON a.applicant_id = u.id
+            p.resume,
+            p.resume_original_name
+            FROM applications AS a
+            INNER JOIN users AS u ON a.applicant_id = u.id
+            INNER JOIN profiles AS p ON u.id = p.user_id
             WHERE a.job_id = ${jobId};
         `;
 

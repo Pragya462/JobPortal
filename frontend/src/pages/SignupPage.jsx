@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { USER_API_END_POINT } from "@/utils/constants";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { setLoading } from "@/redux/authSlice";
 import { Loader2 } from "lucide-react";
 
 function SignupPage() {
+  const { user } = useSelector((store) => store.auth);
   const [input, setInput] = useState({
     fullName: "",
     email: "",
@@ -59,15 +60,27 @@ function SignupPage() {
       console.log(res);
       if (res.data.success) {
         navigate("/login");
-        toast(res.data.message);
+        toast.success(res.data.message);
       }
-    } catch (error) {
-      console.log(error);
+    } 
+    catch (error) {
+        console.log("Error in signing in",error);
+              toast.error(error.response.data.message);
     }
     finally{
         dispatch(setLoading(false));
     }
   };
+
+  useEffect(() => {
+        if(user) {
+          if (user.role === "student") {
+            navigate("/");
+          } else if (user.role === "recruiter") {
+            navigate("/admin/companies");
+          }
+        }
+      }, [user, navigate, dispatch]);
 
   return (
     <div>

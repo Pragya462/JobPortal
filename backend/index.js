@@ -8,7 +8,7 @@ import companyRoutes from './routes/companyRoutes.js'
 import jobRoutes from './routes/jobRoutes.js'
 import applicationRoutes from './routes/applicationRoutes.js'
  
-import { initDB } from './config/db.js';
+import { initDB } from './database/db.js';
 
 dotenv.config();
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { USER_API_END_POINT } from "@/utils/constants";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { setLoading, setUser } from "@/redux/authSlice";
 import { Loader2 } from "lucide-react";
 
 function LoginPage() {
+  const { user } = useSelector((store) => store.auth);
     const [input, setInput] = useState({
         email: "",
         password: "",
@@ -32,14 +33,12 @@ function LoginPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log(input);
         try{
             dispatch(setLoading(true));
             const res = await axios.post(`${USER_API_END_POINT}/login`, input,
                 {
                     withCredentials: true,
             })
-            console.log(res);
             if(res.data.success)
             {
                 dispatch(setUser(res.data.user));
@@ -57,6 +56,16 @@ function LoginPage() {
             dispatch(setLoading(false));
         }
     }
+    useEffect(() => {
+      if(user) {
+        if (user.role === "student") {
+          navigate("/");
+        } else if (user.role === "recruiter") {
+          navigate("/admin/companies");
+        }
+      }
+    }, [user, navigate, dispatch]);
+
   return (
     <div>
       <Navbar />
